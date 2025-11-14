@@ -476,9 +476,12 @@ export default {
     },
   },
 
-  setup() {
+  setup(props) {
     const { sortValue, sortDirection, sortBy } = useSort()
-    const usersStore = useUsersStore()
+    const usersStore = useUsersStore({
+      endpoint: props.apiEndpoint,
+      initPageSize: props.initialPageSize,
+    })
     const {
       users,
       isLoading,

@@ -1,111 +1,122 @@
 import { ref } from 'vue'
 import type { User, UserId } from '@/types/users.types.ts'
 import { defineStore } from 'pinia'
-import usersService from '@/services/users.service.ts'
+import UsersService from '@/services/users.service.ts'
 import { useRequestLoading } from '@/composables/useRequestLoading.ts'
 import { usePagination } from '@/composables/usePagination.ts'
 
-export const useUsersStore = defineStore('users', () => {
-  const users = ref<User[]>([])
+type DefaultListOptions = {
+  endpoint: string
+  initPageSize?: number
+}
 
-  const { isLoading, isRequestLoading } = useRequestLoading()
-  const {
-    currentPage,
-    pageSize,
+export const useUsersStore = (
+  options: DefaultListOptions = { endpoint: '/api/users', initPageSize: 10 },
+) => {
+  const usersService = new UsersService(options.endpoint)
 
-    totalPages,
-    paginationStart,
-    paginationEnd,
-    visiblePages,
+  return defineStore('users', () => {
+    const users = ref<User[]>([])
 
-    goToPage,
-    handlePageSizeChange,
-  } = usePagination(users)
+    const { isLoading, isRequestLoading } = useRequestLoading()
+    const {
+      currentPage,
+      pageSize,
 
-  const getUsers = async () => {
-    try {
-      isLoading.value = true
-      users.value = await usersService.getUsers()
-    } catch (e) {
-      throw e
-    } finally {
-      isLoading.value = false
-    }
-  }
+      totalPages,
+      paginationStart,
+      paginationEnd,
+      visiblePages,
 
-  const addNewUser = async (userData: User) => {
-    try {
-      isLoading.value = true
+      goToPage,
+      handlePageSizeChange,
+    } = usePagination(users, options?.initPageSize)
 
-      const newUser: User = await usersService.addNewUser(userData)
-
-      if (newUser) {
-        users.value.unshift(newUser)
+    const getUsers = async () => {
+      try {
+        isLoading.value = true
+        users.value = await usersService.getUsers()
+      } catch (e) {
+        throw e
+      } finally {
+        isLoading.value = false
       }
-    } catch (e) {
-      throw e
-    } finally {
-      isLoading.value = false
     }
-  }
 
-  const deleteUser = async (userId: UserId) => {
-    try {
-      isLoading.value = true
+    const addNewUser = async (userData: User) => {
+      try {
+        isLoading.value = true
 
-      const deletedUserId = await usersService.deleteUser(userId)
+        const newUser: User = await usersService.addNewUser(userData)
 
-      if (deletedUserId) {
-        const index = users.value.findIndex((u) => u.id === deletedUserId)
-        if (index !== -1) {
-          users.value.splice(index, 1)
+        if (newUser) {
+          users.value.unshift(newUser)
         }
+      } catch (e) {
+        throw e
+      } finally {
+        isLoading.value = false
       }
-    } catch (e) {
-      throw e
-    } finally {
-      isLoading.value = false
     }
-  }
 
-  const deleteUsersMultiple = async (userIds: UserId[]) => {
-    try {
-      isLoading.value = true
+    const deleteUser = async (userId: UserId) => {
+      try {
+        isLoading.value = true
 
-      const deletedUserIds = await usersService.deleteUsersMultiple(userIds)
+        const deletedUserId = await usersService.deleteUser(userId)
 
-      if (deletedUserIds.length) {
-        users.value = users.value.filter((user) => !deletedUserIds.includes(user.id))
+        if (deletedUserId) {
+          const index = users.value.findIndex((u) => u.id === deletedUserId)
+          if (index !== -1) {
+            users.value.splice(index, 1)
+          }
+        }
+      } catch (e) {
+        throw e
+      } finally {
+        isLoading.value = false
       }
-
-      return deletedUserIds
-    } catch (e) {
-      throw e
-    } finally {
-      isLoading.value = false
     }
-  }
 
-  return {
-    users,
+    const deleteUsersMultiple = async (userIds: UserId[]) => {
+      try {
+        isLoading.value = true
 
-    getUsers,
-    addNewUser,
-    deleteUser,
-    deleteUsersMultiple,
+        const deletedUserIds = await usersService.deleteUsersMultiple(userIds)
 
-    isLoading,
-    isRequestLoading,
+        if (deletedUserIds.length) {
+          users.value = users.value.filter((user) => !deletedUserIds.includes(user.id))
+        }
 
-    currentPage,
-    pageSize,
+        return deletedUserIds
+      } catch (e) {
+        throw e
+      } finally {
+        isLoading.value = false
+      }
+    }
 
-    totalPages,
-    paginationStart,
-    paginationEnd,
-    visiblePages,
+    return {
+      users,
 
-    goToPage,
-    handlePageSizeChange,
-  }
-})
+      getUsers,
+      addNewUser,
+      deleteUser,
+      deleteUsersMultiple,
+
+      isLoading,
+      isRequestLoading,
+
+      currentPage,
+      pageSize,
+
+      totalPages,
+      paginationStart,
+      paginationEnd,
+      visiblePages,
+
+      goToPage,
+      handlePageSizeChange,
+    }
+  })()
+}

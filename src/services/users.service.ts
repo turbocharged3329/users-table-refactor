@@ -1,7 +1,11 @@
 import type { User, UserId, UserRole, UserStatus } from '@/types/users.types'
 import { generateId, getRandomArrayItem } from '@/utils'
 
-class UsersService {
+export default class UsersService {
+  // добавлен проброс эндпоинта, но не использован в метродах из за мок-данных
+  private readonly endpoint: string
+  constructor(private readonly endpoint: string) {}
+
   private _generateMockUsers(count: number): User[] {
     const roles: UserRole[] = ['admin', 'user', 'moderator']
     const statuses: UserStatus[] = ['active', 'inactive']
@@ -92,5 +96,3 @@ class UsersService {
     return userIds
   }
 }
-
-export default new UsersService()
