@@ -3,11 +3,24 @@ import type { User, UserId } from '@/types/users.types.ts'
 import { defineStore } from 'pinia'
 import usersService from '@/services/users.service.ts'
 import { useRequestLoading } from '@/composables/useRequestLoading.ts'
+import { usePagination } from '@/composables/usePagination.ts'
 
 export const useUsersStore = defineStore('users', () => {
-  const { isLoading, isRequestLoading } = useRequestLoading()
-
   const users = ref<User[]>([])
+
+  const { isLoading, isRequestLoading } = useRequestLoading()
+  const {
+    currentPage,
+    pageSize,
+
+    totalPages,
+    paginationStart,
+    paginationEnd,
+    visiblePages,
+
+    goToPage,
+    handlePageSizeChange,
+  } = usePagination(users)
 
   const getUsers = async () => {
     try {
@@ -83,5 +96,16 @@ export const useUsersStore = defineStore('users', () => {
 
     isLoading,
     isRequestLoading,
+
+    currentPage,
+    pageSize,
+
+    totalPages,
+    paginationStart,
+    paginationEnd,
+    visiblePages,
+
+    goToPage,
+    handlePageSizeChange,
   }
 })

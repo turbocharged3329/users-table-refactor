@@ -479,8 +479,25 @@ export default {
   setup() {
     const { sortValue, sortDirection, sortBy } = useSort()
     const usersStore = useUsersStore()
-    const { users, isLoading } = storeToRefs(usersStore)
-    const { getUsers, addNewUser, deleteUser, deleteUsersMultiple } = usersStore
+    const {
+      users,
+      isLoading,
+
+      currentPage,
+      pageSize,
+      totalPages,
+      paginationStart,
+      paginationEnd,
+      visiblePages,
+    } = storeToRefs(usersStore)
+    const {
+      getUsers,
+      addNewUser,
+      deleteUser,
+      deleteUsersMultiple,
+      goToPage,
+      handlePageSizeChange,
+    } = usersStore
 
     const error = ref<string | null>(null)
 
@@ -492,12 +509,24 @@ export default {
       sortDirection,
       sortBy,
 
+      // Пагинация
+      currentPage,
+      pageSize,
+      totalPages,
+      paginationStart,
+      paginationEnd,
+      visiblePages,
+      goToPage,
+      handlePageSizeChange,
+
       // Пользователи
       users,
       getUsers,
       addNewUser,
       deleteUser,
       deleteUsersMultiple,
+
+      // Состояние запроса
       isLoading,
     }
   },
@@ -513,10 +542,6 @@ export default {
       filterStatus: '',
       dateFrom: '',
       dateTo: '',
-
-      // Пагинация
-      currentPage: 1,
-      pageSize: this.initialPageSize,
 
       // Выбор строк
       selectedUsers: [],
@@ -635,59 +660,11 @@ export default {
     },
 
     // Пагинация
-    totalPages() {
-      return Math.ceil(this.sortedUsers.length / this.pageSize)
-    },
-
-    paginationStart() {
-      return (this.currentPage - 1) * this.pageSize + 1
-    },
-
-    paginationEnd() {
-      const end = this.currentPage * this.pageSize
-      return end > this.sortedUsers.length ? this.sortedUsers.length : end
-    },
 
     paginatedUsers() {
       const start = (this.currentPage - 1) * this.pageSize
       const end = start + this.pageSize
       return this.sortedUsers.slice(start, end)
-    },
-
-    visiblePages() {
-      const pages = []
-      const total = this.totalPages
-      const current = this.currentPage
-
-      if (total <= 7) {
-        for (let i = 1; i <= total; i++) {
-          pages.push(i)
-        }
-      } else {
-        if (current <= 4) {
-          for (let i = 1; i <= 5; i++) {
-            pages.push(i)
-          }
-          pages.push('...')
-          pages.push(total)
-        } else if (current >= total - 3) {
-          pages.push(1)
-          pages.push('...')
-          for (let i = total - 4; i <= total; i++) {
-            pages.push(i)
-          }
-        } else {
-          pages.push(1)
-          pages.push('...')
-          for (let i = current - 1; i <= current + 1; i++) {
-            pages.push(i)
-          }
-          pages.push('...')
-          pages.push(total)
-        }
-      }
-
-      return pages
     },
 
     // Выбор всех
@@ -763,18 +740,6 @@ export default {
     // Поиск
     handleSearch() {
       // Дебаунс можно добавить здесь
-    },
-
-    // Пагинация
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }
-    },
-
-    handlePageSizeChange() {
-      this.currentPage = 1
     },
 
     // Выбор строк
