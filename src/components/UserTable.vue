@@ -35,7 +35,11 @@
           📥 Экспорт
         </button>
 
-        <button v-if="selectedUsers.length > 0" @click="deleteSelectedUsers" class="btn btn-danger">
+        <button
+          v-if="selectedUsers.length > 0"
+          @click="deleteSelectedUsersHandler"
+          class="btn btn-danger"
+        >
           🗑️ Удалить выбранные ({{ selectedUsers.length }})
         </button>
       </div>
@@ -229,7 +233,7 @@
                 </button>
                 <button
                   v-if="editingUserId !== user.id"
-                  @click="deleteUser(user.id)"
+                  @click="deleteUserHandler(user.id)"
                   class="btn-icon btn-danger"
                   title="Удалить"
                 >
@@ -352,7 +356,7 @@
         <div class="modal-footer">
           <button @click="closeAddUserModal" class="btn btn-secondary">Отмена</button>
           <button
-            @click="addNewUser"
+            @click="addNewUserHandler"
             class="btn btn-primary"
             :disabled="!isNewUserValid || isSaving"
           >
@@ -444,10 +448,15 @@
 </template>
 
 <script lang="ts">
+import { ref } from 'vue'
 import { formatDate } from '@/utils/date.ts'
-import { validateEmail } from '@/utils/validate.ts'
+import { validateEmail, getErrorTextMessage } from '@/utils/validate.ts'
 import { createAndDownloadCSV } from '@/utils/file.ts'
 import { useSort } from '@/composables/useSort.ts'
+import { useUsersStore } from '@/stores/users.store'
+import { storeToRefs } from 'pinia'
+import type { User, UserId } from '@/types/users.types'
+import { generateId } from '@/utils'
 
 export default {
   name: 'UserTable',
@@ -469,24 +478,34 @@ export default {
 
   setup() {
     const { sortValue, sortDirection, sortBy } = useSort()
+    const usersStore = useUsersStore()
+    const { users, isLoading } = storeToRefs(usersStore)
+    const { getUsers, addNewUser, deleteUser, deleteUsersMultiple } = usersStore
+
+    const error = ref<string | null>(null)
 
     return {
+      error,
+
       // Сортировка
       sortValue,
       sortDirection,
       sortBy,
+
+      // Пользователи
+      users,
+      getUsers,
+      addNewUser,
+      deleteUser,
+      deleteUsersMultiple,
+      isLoading,
     }
   },
 
   data() {
     return {
-      // Данные
-      users: [],
-
       // Состояния загрузки
-      isLoading: false,
       isSaving: false,
-      error: null,
 
       // Поиск и фильтрация
       searchQuery: '',
@@ -726,70 +745,19 @@ export default {
 
     // Загрузка данных
     async loadUsers() {
-      this.isLoading = true
       this.error = null
 
       try {
         // Симуляция API запроса
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Генерация тестовых данных
-        this.users = this.generateMockUsers(100)
+        await this.getUsers()
       } catch (err) {
-        this.error = 'Ошибка загрузки данных: ' + err.message
-      } finally {
-        this.isLoading = false
+        this.error = 'Ошибка загрузки данных: ' + getErrorTextMessage(err)
+        console.error(err)
       }
     },
 
     async retryLoad() {
       await this.loadUsers()
-    },
-
-    // Генерация mock данных
-    generateMockUsers(count) {
-      const roles = ['admin', 'user', 'moderator']
-      const statuses = ['active', 'inactive']
-      const names = [
-        'Иван Петров',
-        'Мария Сидорова',
-        'Алексей Иванов',
-        'Елена Кузнецова',
-        'Дмитрий Смирнов',
-        'Ольга Попова',
-        'Сергей Васильев',
-        'Анна Соколова',
-        'Николай Михайлов',
-        'Татьяна Новикова',
-      ]
-
-      const users = []
-      for (let i = 1; i <= count; i++) {
-        const name = names[Math.floor(Math.random() * names.length)] + ' ' + i
-        const registrationDate = new Date(
-          2020,
-          Math.floor(Math.random() * 12),
-          Math.floor(Math.random() * 28),
-        )
-        const lastActivity = new Date(
-          Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000),
-        )
-
-        users.push({
-          id: i,
-          name: name,
-          email: `user${i}@example.com`,
-          role: roles[Math.floor(Math.random() * roles.length)],
-          status: statuses[Math.floor(Math.random() * statuses.length)],
-          registrationDate: registrationDate.toISOString(),
-          lastActivity: lastActivity.toISOString(),
-          avatar: null,
-          loginCount: Math.floor(Math.random() * 500),
-          postsCount: Math.floor(Math.random() * 100),
-          commentsCount: Math.floor(Math.random() * 300),
-        })
-      }
-      return users
     },
 
     // Поиск
@@ -855,7 +823,7 @@ export default {
       }
     },
 
-    async saveEdit(userId) {
+    async saveEdit(userId: UserId) {
       this.isSaving = true
 
       try {
@@ -877,50 +845,38 @@ export default {
           role: '',
         }
       } catch (err) {
-        alert('Ошибка сохранения: ' + err.message)
+        alert('Ошибка сохранения: ' + getErrorTextMessage(err))
       } finally {
         this.isSaving = false
       }
     },
 
     // Удаление
-    async deleteUser(userId) {
+    deleteUserHandler(userId: UserId) {
       if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) {
         return
       }
 
       try {
-        // Симуляция API запроса
-        await new Promise((resolve) => setTimeout(resolve, 300))
-
-        const index = this.users.findIndex((u) => u.id === userId)
-        if (index !== -1) {
-          this.users.splice(index, 1)
-        }
-
-        // Удаляем из выбранных
-        const selectedIndex = this.selectedUsers.indexOf(userId)
-        if (selectedIndex > -1) {
-          this.selectedUsers.splice(selectedIndex, 1)
-        }
+        this.deleteUser(userId)
       } catch (err) {
-        alert('Ошибка удаления: ' + err.message)
+        alert('Ошибка удаления: ' + getErrorTextMessage(err))
       }
     },
 
-    async deleteSelectedUsers() {
+    async deleteSelectedUsersHandler() {
       if (!confirm(`Вы уверены, что хотите удалить ${this.selectedUsers.length} пользователей?`)) {
         return
       }
 
       try {
-        // Симуляция API запроса
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        const deletedUserIds = await this.deleteUsersMultiple(this.selectedUsers)
 
-        this.users = this.users.filter((user) => !this.selectedUsers.includes(user.id))
-        this.selectedUsers = []
+        if (deletedUserIds.length) {
+          this.selectedUsers = []
+        }
       } catch (err) {
-        alert('Ошибка удаления: ' + err.message)
+        alert('Ошибка удаления: ' + getErrorTextMessage(err))
       }
     },
 
@@ -977,7 +933,7 @@ export default {
       }
     },
 
-    async addNewUser() {
+    async addNewUserHandler() {
       this.validateNewUserName()
       this.validateNewUserEmail()
 
@@ -988,11 +944,8 @@ export default {
       this.isSaving = true
 
       try {
-        // Симуляция API запроса
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        const newUser = {
-          id: Math.max(...this.users.map((u) => u.id)) + 1,
+        const newUser: User = {
+          id: generateId(),
           name: this.newUser.name,
           email: this.newUser.email,
           role: this.newUser.role,
@@ -1005,10 +958,11 @@ export default {
           commentsCount: 0,
         }
 
-        this.users.unshift(newUser)
+        await this.addNewUser(newUser)
+
         this.closeAddUserModal()
       } catch (err) {
-        alert('Ошибка создания пользователя: ' + err.message)
+        alert('Ошибка создания пользователя: ' + (err instanceof Error ? err.message : String(err)))
       } finally {
         this.isSaving = false
       }
