@@ -1,10 +1,10 @@
 import { ref } from 'vue'
 
-export const useSort = (defaultSortValue = 'id') => {
-  const sortValue = ref<string>(defaultSortValue)
+export const useSort = <T extends object>() => {
+  const sortValue = ref<keyof T | null>(null)
   const sortDirection = ref<'asc' | 'desc'>('asc')
 
-  const sortBy = (value: string) => {
+  const sortBy = (value: keyof T) => {
     if (sortValue.value === value) {
       sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
     } else {

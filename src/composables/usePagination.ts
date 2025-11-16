@@ -58,8 +58,9 @@ export const usePagination = (itemsArray: Ref<unknown[]>, initialPageSize: numbe
     }
   }
 
-  const handlePageSizeChange = () => {
-    currentPage.value = 1
+  const handlePageSizeChange = (pageSizeValue: number) => {
+    pageSize.value = pageSizeValue
+    goToPage(1)
   }
 
   return {

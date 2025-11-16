@@ -9,14 +9,17 @@
 
       <div class="header-right">
         <input
-          v-model="searchQuery"
           type="text"
           placeholder="Поиск по имени, email..."
           class="search-input"
           @input="handleSearch"
         />
 
-        <select v-model="filterRole" class="role-filter">
+        <select
+          :value="filters.filterRole"
+          @change="setListFilters({ filterRole: $event.target.value })"
+          class="role-filter"
+        >
           <option value="">Все роли</option>
           <option value="admin">Администратор</option>
           <option value="user">Пользователь</option>
@@ -49,18 +52,21 @@
     <div class="filters-section">
       <div class="filter-group">
         <label>Статус:</label>
-        <button :class="['filter-btn', { active: filterStatus === '' }]" @click="filterStatus = ''">
+        <button
+          :class="['filter-btn', { active: filters.filterStatus === '' }]"
+          @click="clearFilters(['filterStatus'])"
+        >
           Все
         </button>
         <button
-          :class="['filter-btn', { active: filterStatus === 'active' }]"
-          @click="filterStatus = 'active'"
+          :class="['filter-btn', { active: filters.filterStatus === 'active' }]"
+          @click="setListFilters({ filterStatus: 'active' })"
         >
           Активные
         </button>
         <button
-          :class="['filter-btn', { active: filterStatus === 'inactive' }]"
-          @click="filterStatus = 'inactive'"
+          :class="['filter-btn', { active: filters.filterStatus === 'inactive' }]"
+          @click="setListFilters({ filterStatus: 'inactive' })"
         >
           Неактивные
         </button>
@@ -68,10 +74,20 @@
 
       <div class="filter-group">
         <label>Дата регистрации:</label>
-        <input v-model="dateFrom" type="date" class="date-input" />
+        <input
+          :value="filters.dateFrom"
+          @blur="setListFilters({ dateFrom: $event.target.value })"
+          type="date"
+          class="date-input"
+        />
         <span>-</span>
-        <input v-model="dateTo" type="date" class="date-input" />
-        <button @click="clearDateFilter" class="btn-clear">Очистить</button>
+        <input
+          :value="filters.dateTo"
+          @blur="setListFilters({ dateTo: $event.target.value })"
+          type="date"
+          class="date-input"
+        />
+        <button @click="clearFilters(['dateFrom', 'dateTo'])" class="btn-clear">Очистить</button>
       </div>
     </div>
 
@@ -128,6 +144,7 @@
             <th>Действия</th>
           </tr>
         </thead>
+
         <tbody>
           <tr
             v-for="user in paginatedUsers"
@@ -248,7 +265,7 @@
       <!-- Сообщение если нет данных -->
       <div v-if="paginatedUsers.length === 0" class="no-data">
         <p>😔 Нет данных для отображения</p>
-        <button @click="clearAllFilters" class="btn btn-primary">Сбросить фильтры</button>
+        <button @click="clearFilters(null)" class="btn btn-primary">Сбросить фильтры</button>
       </div>
     </div>
 
@@ -292,7 +309,7 @@
 
       <div class="page-size-selector">
         <label>На странице:</label>
-        <select v-model="pageSize" @change="handlePageSizeChange">
+        <select :value="pageSize" @change="handlePageSizeChange($event.target.value)">
           <option :value="10">10</option>
           <option :value="25">25</option>
           <option :value="50">50</option>
@@ -452,11 +469,11 @@ import { ref } from 'vue'
 import { formatDate } from '@/utils/date.ts'
 import { validateEmail, getErrorTextMessage } from '@/utils/validate.ts'
 import { createAndDownloadCSV } from '@/utils/file.ts'
-import { useSort } from '@/composables/useSort.ts'
 import { useUsersStore } from '@/stores/users.store'
 import { storeToRefs } from 'pinia'
 import type { User, UserId } from '@/types/users.types'
-import { generateId } from '@/utils'
+import { generateId, debounce } from '@/utils'
+import { getDefaultAvatar, getActivityClass } from '@/utils/users.utils'
 
 export default {
   name: 'UserTable',
@@ -477,11 +494,18 @@ export default {
   },
 
   setup(props) {
-    const { sortValue, sortDirection, sortBy } = useSort()
     const usersStore = useUsersStore({
       endpoint: props.apiEndpoint,
       initPageSize: props.initialPageSize,
+      initialFilters: {
+        searchQuery: '',
+        filterRole: '',
+        filterStatus: '',
+        dateFrom: '',
+        dateTo: '',
+      },
     })
+
     const {
       users,
       isLoading,
@@ -492,6 +516,8 @@ export default {
       paginationStart,
       paginationEnd,
       visiblePages,
+
+      filters,
     } = storeToRefs(usersStore)
     const {
       getUsers,
@@ -500,7 +526,14 @@ export default {
       deleteUsersMultiple,
       goToPage,
       handlePageSizeChange,
+
+      setListFilters,
+      clearFilters,
     } = usersStore
+
+    const { sortValue, sortDirection, filteredAndSearchedUsers, paginatedUsers, sortedUsers } =
+      storeToRefs(usersStore)
+    const { sortBy } = usersStore
 
     const error = ref<string | null>(null)
 
@@ -524,10 +557,20 @@ export default {
 
       // Пользователи
       users,
+
+      sortedUsers,
+      paginatedUsers,
+      filteredAndSearchedUsers,
+
       getUsers,
       addNewUser,
       deleteUser,
       deleteUsersMultiple,
+
+      // Фильтры
+      filters,
+      setListFilters,
+      clearFilters,
 
       // Состояние запроса
       isLoading,
@@ -538,13 +581,6 @@ export default {
     return {
       // Состояния загрузки
       isSaving: false,
-
-      // Поиск и фильтрация
-      searchQuery: '',
-      filterRole: '',
-      filterStatus: '',
-      dateFrom: '',
-      dateTo: '',
 
       // Выбор строк
       selectedUsers: [],
@@ -578,98 +614,6 @@ export default {
   },
 
   computed: {
-    // Фильтрация по роли
-    roleFilteredUsers() {
-      if (!this.filterRole) {
-        return this.users
-      }
-      return this.users.filter((user) => user.role === this.filterRole)
-    },
-
-    // Фильтрация по статусу
-    statusFilteredUsers() {
-      if (!this.filterStatus) {
-        return this.roleFilteredUsers
-      }
-      return this.roleFilteredUsers.filter((user) => user.status === this.filterStatus)
-    },
-
-    // Фильтрация по датам
-    dateFilteredUsers() {
-      let filtered = this.statusFilteredUsers
-
-      if (this.dateFrom) {
-        const fromDate = new Date(this.dateFrom)
-        filtered = filtered.filter((user) => {
-          const userDate = new Date(user.registrationDate)
-          return userDate >= fromDate
-        })
-      }
-
-      if (this.dateTo) {
-        const toDate = new Date(this.dateTo)
-        toDate.setHours(23, 59, 59, 999)
-        filtered = filtered.filter((user) => {
-          const userDate = new Date(user.registrationDate)
-          return userDate <= toDate
-        })
-      }
-
-      return filtered
-    },
-
-    // Поиск
-    filteredAndSearchedUsers() {
-      if (!this.searchQuery.trim()) {
-        return this.dateFilteredUsers
-      }
-
-      const query = this.searchQuery.toLowerCase().trim()
-      return this.dateFilteredUsers.filter((user) => {
-        return (
-          user.name.toLowerCase().includes(query) ||
-          user.email.toLowerCase().includes(query) ||
-          user.id.toString().includes(query)
-        )
-      })
-    },
-
-    // Сортировка
-    sortedUsers() {
-      const users = [...this.filteredAndSearchedUsers]
-
-      users.sort((a, b) => {
-        let aVal = a[this.sortValue]
-        let bVal = b[this.sortValue]
-
-        if (this.sortValue === 'registrationDate' || this.sortValue === 'lastActivity') {
-          aVal = new Date(aVal).getTime()
-          bVal = new Date(bVal).getTime()
-        } else if (typeof aVal === 'string') {
-          aVal = aVal.toLowerCase()
-          bVal = bVal.toLowerCase()
-        }
-
-        if (aVal < bVal) {
-          return this.sortDirection === 'asc' ? -1 : 1
-        }
-        if (aVal > bVal) {
-          return this.sortDirection === 'asc' ? 1 : -1
-        }
-        return 0
-      })
-
-      return users
-    },
-
-    // Пагинация
-
-    paginatedUsers() {
-      const start = (this.currentPage - 1) * this.pageSize
-      const end = start + this.pageSize
-      return this.sortedUsers.slice(start, end)
-    },
-
     // Выбор всех
     isAllSelected() {
       return (
@@ -690,45 +634,20 @@ export default {
     },
   },
 
-  watch: {
-    searchQuery() {
-      this.currentPage = 1
-    },
-
-    filterRole() {
-      this.currentPage = 1
-    },
-
-    filterStatus() {
-      this.currentPage = 1
-    },
-
-    dateFrom() {
-      this.currentPage = 1
-    },
-
-    dateTo() {
-      this.currentPage = 1
-    },
-
-    pageSize() {
-      this.currentPage = 1
-    },
-  },
-
   mounted() {
     this.loadUsers()
   },
 
   methods: {
     formatDate,
+    getDefaultAvatar,
+    getActivityClass,
 
     // Загрузка данных
     async loadUsers() {
       this.error = null
 
       try {
-        // Симуляция API запроса
         await this.getUsers()
       } catch (err) {
         this.error = 'Ошибка загрузки данных: ' + getErrorTextMessage(err)
@@ -741,8 +660,8 @@ export default {
     },
 
     // Поиск
-    handleSearch() {
-      // Дебаунс можно добавить здесь
+    handleSearch($event) {
+      debounce(() => this.setListFilters({ searchQuery: $event.target.value }), 500)()
     },
 
     // Выбор строк
@@ -967,20 +886,6 @@ export default {
       createAndDownloadCSV(headers, rows, `users_export_${new Date().getTime()}`)
     },
 
-    // Очистка фильтров
-    clearDateFilter() {
-      this.dateFrom = ''
-      this.dateTo = ''
-    },
-
-    clearAllFilters() {
-      this.searchQuery = ''
-      this.filterRole = ''
-      this.filterStatus = ''
-      this.dateFrom = ''
-      this.dateTo = ''
-    },
-
     // Утилиты
     getRoleLabel(role) {
       const labels = {
@@ -995,6 +900,7 @@ export default {
       const date = new Date(dateString)
       const now = new Date()
       const diffMs = now - date
+
       const diffMins = Math.floor(diffMs / 60000)
       const diffHours = Math.floor(diffMs / 3600000)
       const diffDays = Math.floor(diffMs / 86400000)
@@ -1003,27 +909,8 @@ export default {
       if (diffMins < 60) return `${diffMins} мин. назад`
       if (diffHours < 24) return `${diffHours} ч. назад`
       if (diffDays < 30) return `${diffDays} дн. назад`
+
       return this.formatDate(dateString)
-    },
-
-    getActivityClass(dateString) {
-      const date = new Date(dateString)
-      const now = new Date()
-      const diffDays = Math.floor((now - date) / 86400000)
-
-      if (diffDays < 1) return 'activity-recent'
-      if (diffDays < 7) return 'activity-week'
-      if (diffDays < 30) return 'activity-month'
-      return 'activity-old'
-    },
-
-    getDefaultAvatar(name) {
-      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8']
-      const initial = name.charAt(0).toUpperCase()
-      const colorIndex = name.charCodeAt(0) % colors.length
-      const color = colors[colorIndex]
-
-      return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='${encodeURIComponent(color)}'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3E${initial}%3C/text%3E%3C/svg%3E`
     },
   },
 }
