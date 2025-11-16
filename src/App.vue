@@ -1,6 +1,6 @@
 <template>
   <UserTable />
-  <!--  <UserTableLegacy />-->
+  <!-- <UserTableLegacy /> -->
 </template>
 
 <script setup lang="ts">

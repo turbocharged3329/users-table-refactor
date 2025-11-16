@@ -33,17 +33,17 @@
         <button
           @click="exportToCSV"
           class="btn btn-secondary"
-          :disabled="isLoading || (selectedUsers.length === 0 && !showAllUsers)"
+          :disabled="isLoading || checkedItems.length === 0"
         >
           📥 Экспорт
         </button>
 
         <button
-          v-if="selectedUsers.length > 0"
+          v-if="checkedItems.length > 0"
           @click="deleteSelectedUsersHandler"
           class="btn btn-danger"
         >
-          🗑️ Удалить выбранные ({{ selectedUsers.length }})
+          🗑️ Удалить выбранные ({{ checkedItems.length }})
         </button>
       </div>
     </div>
@@ -150,7 +150,7 @@
             v-for="user in paginatedUsers"
             :key="user.id"
             :class="{
-              selected: selectedUsers.includes(user.id),
+              selected: checkedItems.some((checkedId) => checkedId === user.id),
               editing: editingUserId === user.id,
               inactive: user.status === 'inactive',
             }"
@@ -158,8 +158,8 @@
             <td>
               <input
                 type="checkbox"
-                :checked="selectedUsers.includes(user.id)"
-                @change="toggleSelectUser(user.id)"
+                :checked="checkedItems.some((checkedId) => checkedId === user.id)"
+                @change="toggleSelectItem(user.id)"
               />
             </td>
             <td>{{ user.id }}</td>
@@ -474,6 +474,7 @@ import { storeToRefs } from 'pinia'
 import type { User, UserId } from '@/types/users.types'
 import { generateId, debounce } from '@/utils'
 import { getDefaultAvatar, getActivityClass } from '@/utils/users.utils'
+import { useCheckItems } from '@/composables/useCheckItems'
 
 export default {
   name: 'UserTable',
@@ -519,6 +520,7 @@ export default {
 
       filters,
     } = storeToRefs(usersStore)
+
     const {
       getUsers,
       addNewUser,
@@ -534,6 +536,10 @@ export default {
     const { sortValue, sortDirection, filteredAndSearchedUsers, paginatedUsers, sortedUsers } =
       storeToRefs(usersStore)
     const { sortBy } = usersStore
+    const { checkedItems, isAllSelected, toggleSelectItem, toggleSelectAll } = useCheckItems(
+      paginatedUsers,
+      'id',
+    )
 
     const error = ref<string | null>(null)
 
@@ -572,6 +578,12 @@ export default {
       setListFilters,
       clearFilters,
 
+      // Выбор строк
+      checkedItems,
+      isAllSelected,
+      toggleSelectItem,
+      toggleSelectAll,
+
       // Состояние запроса
       isLoading,
     }
@@ -581,10 +593,6 @@ export default {
     return {
       // Состояния загрузки
       isSaving: false,
-
-      // Выбор строк
-      selectedUsers: [],
-      showAllUsers: false,
 
       // Редактирование
       editingUserId: null,
@@ -614,14 +622,6 @@ export default {
   },
 
   computed: {
-    // Выбор всех
-    isAllSelected() {
-      return (
-        this.paginatedUsers.length > 0 &&
-        this.paginatedUsers.every((user) => this.selectedUsers.includes(user.id))
-      )
-    },
-
     // Валидация нового пользователя
     isNewUserValid() {
       return (
@@ -662,33 +662,6 @@ export default {
     // Поиск
     handleSearch($event) {
       debounce(() => this.setListFilters({ searchQuery: $event.target.value }), 500)()
-    },
-
-    // Выбор строк
-    toggleSelectUser(userId) {
-      const index = this.selectedUsers.indexOf(userId)
-      if (index > -1) {
-        this.selectedUsers.splice(index, 1)
-      } else {
-        this.selectedUsers.push(userId)
-      }
-    },
-
-    toggleSelectAll() {
-      if (this.isAllSelected) {
-        this.paginatedUsers.forEach((user) => {
-          const index = this.selectedUsers.indexOf(user.id)
-          if (index > -1) {
-            this.selectedUsers.splice(index, 1)
-          }
-        })
-      } else {
-        this.paginatedUsers.forEach((user) => {
-          if (!this.selectedUsers.includes(user.id)) {
-            this.selectedUsers.push(user.id)
-          }
-        })
-      }
     },
 
     // Редактирование
@@ -752,15 +725,15 @@ export default {
     },
 
     async deleteSelectedUsersHandler() {
-      if (!confirm(`Вы уверены, что хотите удалить ${this.selectedUsers.length} пользователей?`)) {
+      if (!confirm(`Вы уверены, что хотите удалить ${this.checkedItems.length} пользователей?`)) {
         return
       }
 
       try {
-        const deletedUserIds = await this.deleteUsersMultiple(this.selectedUsers)
+        const deletedUserIds = await this.deleteUsersMultiple(this.checkedItems)
 
         if (deletedUserIds.length) {
-          this.selectedUsers = []
+          this.checkedItems = []
         }
       } catch (err) {
         alert('Ошибка удаления: ' + getErrorTextMessage(err))
@@ -869,8 +842,8 @@ export default {
     // Экспорт
     exportToCSV() {
       const usersToExport =
-        this.selectedUsers.length > 0
-          ? this.users.filter((u) => this.selectedUsers.includes(u.id))
+        this.checkedItems.length > 0
+          ? this.users.filter((u) => this.checkedItems.includes(u.id))
           : this.sortedUsers
 
       const headers = ['ID', 'Имя', 'Email', 'Роль', 'Статус', 'Дата регистрации']
