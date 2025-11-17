@@ -25,18 +25,6 @@ export const useUsersStore = (
     const { isLoading, isRequestLoading } = useRequestLoading()
     const { sortValue, sortDirection, sortBy } = useSort<User>()
     const { filters, setFilters, clearFilters } = useFilters(options.initialFilters)
-    const {
-      currentPage,
-      pageSize,
-
-      totalPages,
-      paginationStart,
-      paginationEnd,
-      visiblePages,
-
-      goToPage,
-      handlePageSizeChange,
-    } = usePagination(users, options.initPageSize)
 
     // Фильтрация по роли
     const roleFilteredUsers = computed(() => {
@@ -130,6 +118,19 @@ export const useUsersStore = (
       const end = start + pageSize.value
       return sortedUsers.value.slice(start, end)
     })
+
+    const {
+      currentPage,
+      pageSize,
+
+      totalPages,
+      paginationStart,
+      paginationEnd,
+      visiblePages,
+
+      goToPage,
+      handlePageSizeChange,
+    } = usePagination(sortedUsers, options.initPageSize)
 
     const getUsers = async () => {
       try {
