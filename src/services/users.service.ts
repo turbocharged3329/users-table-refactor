@@ -95,4 +95,11 @@ export default class UsersService {
 
     return userIds
   }
+
+  async updateUser(userId: UserId, userData: User): Promise<User> {
+    // Симуляция API запроса
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return userData
+  }
 }

@@ -21,7 +21,6 @@
       <button @click="retryLoad" class="btn-retry">Повторить</button>
     </div>
 
-    <!-- Таблица -->
     <div v-if="!isLoading && !error" class="table-wrapper">
       <table class="user-table">
         <UTableHead
@@ -34,119 +33,20 @@
         />
 
         <tbody>
-          <tr
+          <UsersTableRow
             v-for="user in paginatedUsers"
             :key="user.id"
-            :class="{
-              selected: checkedItems.some((checkedId) => checkedId === user.id),
-              editing: editingUserId === user.id,
-              inactive: user.status === 'inactive',
-            }"
-          >
-            <td>
-              <input
-                type="checkbox"
-                :checked="checkedItems.some((checkedId) => checkedId === user.id)"
-                @change="toggleSelectItem(user.id)"
-              />
-            </td>
-            <td>{{ user.id }}</td>
-            <td>
-              <div v-if="editingUserId === user.id">
-                <input v-model="editForm.name" type="text" class="edit-input" />
-              </div>
-              <div v-else class="user-name-cell">
-                <img
-                  :src="user.avatar || getDefaultAvatar(user.name)"
-                  :alt="user.name"
-                  class="avatar"
-                />
-                <span>{{ user.name }}</span>
-              </div>
-            </td>
-            <td>
-              <div v-if="editingUserId === user.id">
-                <input v-model="editForm.email" type="email" class="edit-input" />
-              </div>
-              <div v-else>{{ user.email }}</div>
-            </td>
-            <td>
-              <div v-if="editingUserId === user.id">
-                <select v-model="editForm.role" class="edit-select">
-                  <option value="admin">Администратор</option>
-                  <option value="user">Пользователь</option>
-                  <option value="moderator">Модератор</option>
-                </select>
-              </div>
-              <div v-else>
-                <span :class="['role-badge', 'role-' + user.role]">
-                  {{ getRoleLabel(user.role) }}
-                </span>
-              </div>
-            </td>
-            <td>
-              <span
-                :class="[
-                  'status-badge',
-                  user.status === 'active' ? 'status-active' : 'status-inactive',
-                ]"
-                @click="toggleUserStatus(user.id)"
-                :style="{ cursor: 'pointer' }"
-              >
-                {{ user.status === 'active' ? '✓ Активен' : '✗ Неактивен' }}
-              </span>
-            </td>
-            <td>{{ formatDate(user.registrationDate) }}</td>
-            <td>
-              <span :class="getActivityClass(user.lastActivity)">
-                {{ formatRelativeTime(user.lastActivity) }}
-              </span>
-            </td>
-            <td>
-              <div class="action-buttons">
-                <button
-                  v-if="editingUserId !== user.id"
-                  @click="startEdit(user)"
-                  class="btn-icon"
-                  title="Редактировать"
-                >
-                  ✏️
-                </button>
-                <button
-                  v-if="editingUserId === user.id"
-                  @click="saveEdit(user.id)"
-                  class="btn-icon btn-success"
-                  title="Сохранить"
-                >
-                  ✓
-                </button>
-                <button
-                  v-if="editingUserId === user.id"
-                  @click="cancelEdit"
-                  class="btn-icon btn-cancel"
-                  title="Отмена"
-                >
-                  ✗
-                </button>
-                <button
-                  v-if="editingUserId !== user.id"
-                  @click="openUserDetails(user)"
-                  class="btn-icon"
-                  title="Подробнее"
-                >
-                  👁️
-                </button>
-                <button
-                  v-if="editingUserId !== user.id"
-                  @click="deleteUserHandler(user.id)"
-                  class="btn-icon btn-danger"
-                  title="Удалить"
-                >
-                  🗑️
-                </button>
-              </div>
-            </td>
-          </tr>
+            :userData="user"
+            :editingUserId
+            :checked="checkedItems.some((checkedId) => checkedId === user.id)"
+            @check-item="toggleSelectItem"
+            @toggle-status="toggleUserStatus"
+            @edit="editingUserId = user.id"
+            @save-edit="editingUserId = null"
+            @cancel="editingUserId = null"
+            @details="openUserDetails(user)"
+            @delete="deleteUserHandler(user.id)"
+          />
         </tbody>
       </table>
 
@@ -195,6 +95,7 @@ import UsersTableHeader from '@/components/users-table/UsersTableHeader.vue'
 import UsersTableFilters from '@/components/users-table/UsersTableFilters.vue'
 import UPagination from '@/components/UPagination.vue'
 import UTableHead from '@/components/UTableHead.vue'
+import UsersTableRow from '@/components/users-table/UsersTableRow.vue'
 import type { UTableColumn, UTableColumnSortValue } from '@/types/ui.types'
 
 export default {
@@ -242,6 +143,7 @@ export default {
     UsersTableFilters,
     UPagination,
     UTableHead,
+    UsersTableRow,
   },
 
   props: {
@@ -271,6 +173,8 @@ export default {
         dateTo: '',
       },
     })
+
+    const editingUserId = ref<UserId | null>(null)
 
     const {
       users,
@@ -356,22 +260,14 @@ export default {
 
       // Состояние запроса
       isLoading,
+
+      // Редактирование
+      editingUserId,
     }
   },
 
   data() {
     return {
-      // Состояния загрузки
-      isSaving: false,
-
-      // Редактирование
-      editingUserId: null,
-      editForm: {
-        name: '',
-        email: '',
-        role: '',
-      },
-
       // Модальные окна
       showAddUserModal: false,
       showDetailsModal: false,
@@ -406,53 +302,6 @@ export default {
       await this.loadUsers()
     },
 
-    // Редактирование
-    startEdit(user) {
-      this.editingUserId = user.id
-      this.editForm = {
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      }
-    },
-
-    cancelEdit() {
-      this.editingUserId = null
-      this.editForm = {
-        name: '',
-        email: '',
-        role: '',
-      }
-    },
-
-    async saveEdit(userId: UserId) {
-      this.isSaving = true
-
-      try {
-        // Симуляция API запроса
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        const userIndex = this.users.findIndex((u) => u.id === userId)
-        if (userIndex !== -1) {
-          this.users[userIndex] = {
-            ...this.users[userIndex],
-            ...this.editForm,
-          }
-        }
-
-        this.editingUserId = null
-        this.editForm = {
-          name: '',
-          email: '',
-          role: '',
-        }
-      } catch (err) {
-        alert('Ошибка сохранения: ' + getErrorTextMessage(err))
-      } finally {
-        this.isSaving = false
-      }
-    },
-
     // Удаление
     deleteUserHandler(userId: UserId) {
       if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) {
@@ -475,14 +324,14 @@ export default {
     },
 
     // Переключение статуса
-    async toggleUserStatus(userId) {
+    async toggleUserStatus(userId: UserId) {
       try {
         const user = this.users.find((u) => u.id === userId)
         if (user) {
           user.status = user.status === 'active' ? 'inactive' : 'active'
         }
       } catch (err) {
-        alert('Ошибка изменения статуса: ' + err.message)
+        alert('Ошибка изменения статуса: ' + getErrorTextMessage(err))
       }
     },
 
@@ -553,114 +402,6 @@ export default {
 .user-table {
   width: 100%;
   border-collapse: collapse;
-}
-
-.user-table thead {
-  background: #f5f5f5;
-  border-bottom: 2px solid #ddd;
-}
-
-.user-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: #555;
-  font-size: 14px;
-}
-
-.user-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-}
-
-.user-table th.sortable:hover {
-  background: #eeeeee;
-}
-
-.user-table th.active {
-  color: #4caf50;
-}
-
-.user-table td {
-  padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 14px;
-}
-
-.user-table tbody tr {
-  transition: background 0.2s;
-}
-
-.user-table tbody tr:hover {
-  background: #fafafa;
-}
-
-.user-table tbody tr.selected {
-  background: #e8f5e9;
-}
-
-.user-table tbody tr.editing {
-  background: #fff9c4;
-}
-
-.user-table tbody tr.inactive {
-  opacity: 0.6;
-}
-
-.user-name-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 5px;
-}
-
-.btn-icon {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.btn-icon:hover {
-  background: #f0f0f0;
-  transform: scale(1.1);
-}
-
-.btn-icon.btn-success {
-  background: #4caf50;
-  color: white;
-  border-color: #4caf50;
-}
-
-.btn-icon.btn-cancel {
-  background: #ff9800;
-  color: white;
-  border-color: #ff9800;
-}
-
-.btn-icon.btn-danger {
-  border-color: #f44336;
-}
-
-.btn-icon.btn-danger:hover {
-  background: #f44336;
-  color: white;
-}
-
-.edit-input,
-.edit-select {
-  padding: 6px 10px;
-  border: 1px solid #4caf50;
-  border-radius: 4px;
-  width: 100%;
-  font-size: 14px;
 }
 
 .no-data {

@@ -195,6 +195,26 @@ export const useUsersStore = (
       }
     }
 
+    const updateUser = async (userId: UserId, userData: User) => {
+      try {
+        isLoading.value = true
+
+        const updatedUser = await usersService.updateUser(userId, userData)
+
+        if (updatedUser) {
+          const updatedUserIndex = users.value.findIndex((user) => user.id === userId)
+
+          if (updatedUserIndex !== -1) {
+            users.value[updatedUserIndex] = updatedUser
+          }
+        }
+      } catch (e) {
+        throw e
+      } finally {
+        isLoading.value = false
+      }
+    }
+
     const setListFilters = (filtersObj: ListFilters) => {
       setFilters(filtersObj)
       goToPage(1)
@@ -214,6 +234,7 @@ export const useUsersStore = (
       addNewUser,
       deleteUser,
       deleteUsersMultiple,
+      updateUser,
 
       isLoading,
       isRequestLoading,
