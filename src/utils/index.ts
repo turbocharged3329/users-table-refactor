@@ -17,3 +17,7 @@ export const debounce = <T extends (...args: unknown[]) => unknown>(fn: T, delay
     timer = setTimeout(() => fn.apply(this, args), delay)
   }
 }
+
+export const isNumber = (value: unknown): value is number => {
+  return typeof value === 'number' && !isNaN(value) && isFinite(value)
+}

@@ -3,7 +3,6 @@ import { generateId, getRandomArrayItem } from '@/utils'
 
 export default class UsersService {
   // добавлен проброс эндпоинта, но не использован в метродах из за мок-данных
-  private readonly endpoint: string
   constructor(private readonly endpoint: string) {}
 
   private _generateMockUsers(count: number): User[] {
@@ -101,5 +100,9 @@ export default class UsersService {
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     return userData
+  }
+
+  getEndpoint(): string {
+    return this.endpoint
   }
 }

@@ -17,7 +17,7 @@
       <button
         v-for="page in visiblePages"
         :key="page"
-        @click="$emit('go-to', page)"
+        @click="isNumber(+page) ? $emit('go-to', +page) : null"
         :class="['btn-page', { active: currentPage === page }]"
       >
         {{ page }}
@@ -55,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+import { isNumber } from '@/utils'
+
 interface Props {
   pageSize: number
   currentPage: number
