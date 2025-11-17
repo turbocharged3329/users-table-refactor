@@ -1,95 +1,13 @@
 <template>
   <div class="user-table-container">
-    <!-- Хедер с действиями -->
-    <div class="table-header">
-      <div class="header-left">
-        <h2>{{ title }}</h2>
-        <span class="total-count">{{ filteredAndSearchedUsers.length }} записей</span>
-      </div>
+    <UsersTableHeader
+      :title="title"
+      :checkedItems="checkedItems"
+      @show-add-user-modal="showAddUserModal = true"
+      @success-delete-users="checkedItems = []"
+    />
 
-      <div class="header-right">
-        <input
-          type="text"
-          placeholder="Поиск по имени, email..."
-          class="search-input"
-          @input="handleSearch"
-        />
-
-        <select
-          :value="filters.filterRole"
-          @change="setListFilters({ filterRole: ($event.target as HTMLSelectElement).value })"
-          class="role-filter"
-        >
-          <option value="">Все роли</option>
-          <option value="admin">Администратор</option>
-          <option value="user">Пользователь</option>
-          <option value="moderator">Модератор</option>
-        </select>
-
-        <button @click="showAddUserModal = true" class="btn btn-primary" :disabled="isLoading">
-          + Добавить пользователя
-        </button>
-
-        <button
-          @click="exportToCSV"
-          class="btn btn-secondary"
-          :disabled="isLoading || checkedItems.length === 0"
-        >
-          📥 Экспорт
-        </button>
-
-        <button
-          v-if="checkedItems.length > 0"
-          @click="deleteSelectedUsersHandler"
-          class="btn btn-danger"
-        >
-          🗑️ Удалить выбранные ({{ checkedItems.length }})
-        </button>
-      </div>
-    </div>
-
-    <!-- Фильтры -->
-    <div class="filters-section">
-      <div class="filter-group">
-        <label>Статус:</label>
-        <button
-          :class="['filter-btn', { active: filters.filterStatus === '' }]"
-          @click="clearFilters(['filterStatus'])"
-        >
-          Все
-        </button>
-        <button
-          :class="['filter-btn', { active: filters.filterStatus === 'active' }]"
-          @click="setListFilters({ filterStatus: 'active' })"
-        >
-          Активные
-        </button>
-        <button
-          :class="['filter-btn', { active: filters.filterStatus === 'inactive' }]"
-          @click="setListFilters({ filterStatus: 'inactive' })"
-        >
-          Неактивные
-        </button>
-      </div>
-
-      <div class="filter-group">
-        <label>Дата регистрации:</label>
-        <input
-          :value="filters.dateFrom"
-          @blur="setListFilters({ dateFrom: ($event.target as HTMLInputElement).value })"
-          type="date"
-          class="date-input"
-        />
-        <span>-</span>
-        <input
-          :value="filters.dateTo"
-          @blur="setListFilters({ dateTo: ($event.target as HTMLInputElement).value })"
-          type="date"
-          class="date-input"
-        />
-        <button @click="clearFilters(['dateFrom', 'dateTo'])" class="btn-clear">Очистить</button>
-      </div>
-    </div>
+    <UsersTableFilters />
 
     <!-- Загрузка -->
     <div v-if="isLoading" class="loading-overlay">
@@ -328,15 +246,15 @@ import { ref } from 'vue'
 import { getRoleLabel, formatRelativeTime } from '@/utils/users.utils'
 import { formatDate } from '@/utils/date.ts'
 import { getErrorTextMessage } from '@/utils/validate.ts'
-import { createAndDownloadCSV } from '@/utils/file.ts'
 import { useUsersStore } from '@/stores/users.store'
 import { storeToRefs } from 'pinia'
 import type { User, UserId } from '@/types/users.types'
-import { debounce } from '@/utils'
 import { getDefaultAvatar, getActivityClass } from '@/utils/users.utils'
 import { useCheckItems } from '@/composables/useCheckItems'
 import UsersTableAddUserModal from '@/components/users-table/UsersTableAddUserModal.vue'
 import UsersTableUserDetailsModal from '@/components/users-table/UsersTableUserDetailsModal.vue'
+import UsersTableHeader from '@/components/users-table/UsersTableHeader.vue'
+import UsersTableFilters from '@/components/users-table/UsersTableFilters.vue'
 
 export default {
   name: 'UserTable',
@@ -344,6 +262,8 @@ export default {
   components: {
     UsersTableAddUserModal,
     UsersTableUserDetailsModal,
+    UsersTableHeader,
+    UsersTableFilters,
   },
 
   props: {
@@ -503,11 +423,6 @@ export default {
       await this.loadUsers()
     },
 
-    // Поиск
-    handleSearch($event) {
-      debounce(() => this.setListFilters({ searchQuery: $event.target.value }), 500)()
-    },
-
     // Редактирование
     startEdit(user) {
       this.editingUserId = user.id
@@ -568,22 +483,6 @@ export default {
       }
     },
 
-    async deleteSelectedUsersHandler() {
-      if (!confirm(`Вы уверены, что хотите удалить ${this.checkedItems.length} пользователей?`)) {
-        return
-      }
-
-      try {
-        const deletedUserIds = await this.deleteUsersMultiple(this.checkedItems)
-
-        if (deletedUserIds.length) {
-          this.checkedItems = []
-        }
-      } catch (err) {
-        alert('Ошибка удаления: ' + getErrorTextMessage(err))
-      }
-    },
-
     // Переключение статуса
     async toggleUserStatus(userId) {
       try {
@@ -606,26 +505,6 @@ export default {
       this.showDetailsModal = false
       this.selectedUser = null
     },
-
-    // Экспорт
-    exportToCSV() {
-      const usersToExport =
-        this.checkedItems.length > 0
-          ? this.users.filter((u) => this.checkedItems.includes(u.id))
-          : this.sortedUsers
-
-      const headers = ['ID', 'Имя', 'Email', 'Роль', 'Статус', 'Дата регистрации']
-      const rows = usersToExport.map((user) => [
-        user.id,
-        user.name,
-        user.email,
-        this.getRoleLabel(user.role),
-        user.status === 'active' ? 'Активен' : 'Неактивен',
-        this.formatDate(user.registrationDate),
-      ])
-
-      createAndDownloadCSV(headers, rows, `users_export_${new Date().getTime()}`)
-    },
   },
 }
 </script>
@@ -635,125 +514,6 @@ export default {
   padding: 20px;
   background: #f5f5f5;
   min-height: 100vh;
-}
-
-.table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.header-left h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.total-count {
-  color: #666;
-  font-size: 14px;
-}
-
-.header-right {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.search-input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 250px;
-  font-size: 14px;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #4caf50;
-}
-
-.role-filter {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.filters-section {
-  background: white;
-  padding: 15px 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.filter-group:last-child {
-  margin-bottom: 0;
-}
-
-.filter-group label {
-  font-weight: 500;
-  color: #555;
-  min-width: 150px;
-}
-
-.filter-btn {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.filter-btn:hover {
-  background: #f0f0f0;
-}
-
-.filter-btn.active {
-  background: #4caf50;
-  color: white;
-  border-color: #4caf50;
-}
-
-.date-input {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.btn-clear {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-clear:hover {
-  background: #f0f0f0;
 }
 
 .loading-overlay {
