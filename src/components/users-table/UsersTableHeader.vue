@@ -10,6 +10,7 @@
         type="text"
         placeholder="Поиск по имени, email..."
         class="search-input"
+        :value="filters.searchQuery"
         @input="handleSearch"
       />
 

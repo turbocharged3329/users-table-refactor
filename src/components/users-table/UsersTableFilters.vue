@@ -26,14 +26,14 @@
       <label>Дата регистрации:</label>
       <input
         :value="filters.dateFrom"
-        @blur="setListFilters({ dateFrom: ($event.target as HTMLInputElement).value })"
+        @input="setListFilters({ dateFrom: ($event.target as HTMLInputElement).value })"
         type="date"
         class="date-input"
       />
       <span>-</span>
       <input
         :value="filters.dateTo"
-        @blur="setListFilters({ dateTo: ($event.target as HTMLInputElement).value })"
+        @input="setListFilters({ dateTo: ($event.target as HTMLInputElement).value })"
         type="date"
         class="date-input"
       />
