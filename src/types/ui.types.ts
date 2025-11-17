@@ -2,7 +2,7 @@ export type UTableColumnSortValue = string | undefined
 
 export interface UTableColumn {
   title: string
-  sortValue: UTableColumnSortValue
+  sortValue?: UTableColumnSortValue
   sortable?: boolean
 }
 

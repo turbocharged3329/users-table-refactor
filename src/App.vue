@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import UsersTable from '@/components/UsersTable.vue'
+import UsersTable from '@/components/users-table/UsersTable.vue'
 // import UserTableLegacy from '@/legacy/UserTableLegacy.vue'
 </script>
 
