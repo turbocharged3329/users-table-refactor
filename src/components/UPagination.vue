@@ -45,10 +45,9 @@
         :value="pageSize"
         @change="$emit('change-page-size', Number(($event.target as HTMLSelectElement).value))"
       >
-        <option :value="10">10</option>
-        <option :value="25">25</option>
-        <option :value="50">50</option>
-        <option :value="100">100</option>
+        <option v-for="size in PAGES_SIZES" :key="size" :value="size">
+          {{ size }}
+        </option>
       </select>
     </div>
   </div>
@@ -56,6 +55,8 @@
 
 <script setup lang="ts">
 import { isNumber } from '@/utils'
+
+const PAGES_SIZES = [10, 25, 50, 100]
 
 interface Props {
   pageSize: number

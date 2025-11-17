@@ -32,9 +32,9 @@
     <td>
       <div v-if="isEditing">
         <select v-model="editForm.role" class="edit-select">
-          <option value="admin">Администратор</option>
-          <option value="user">Пользователь</option>
-          <option value="moderator">Модератор</option>
+          <template v-for="role in USERS_ROLES_OPTIONS" :key="role.value">
+            <option :value="role.value">{{ role.title }}</option>
+          </template>
         </select>
       </div>
       <div v-else>
@@ -96,6 +96,7 @@ import { formatDate } from '@/utils/date.ts'
 import { formatRelativeTime } from '@/utils/users.utils'
 import { getErrorTextMessage } from '@/utils/validate.ts'
 import { useUsersStore } from '@/stores/users.store'
+import { USERS_ROLES_OPTIONS } from '@/constants/users.constants'
 
 const DEFAULT_EDIT_FORM: Pick<User, 'name' | 'email'> & { role: UserRole } = {
   name: '',

@@ -34,9 +34,9 @@
     <div class="form-group">
       <label>Роль*</label>
       <select v-model="newUser.role">
-        <option value="user">Пользователь</option>
-        <option value="moderator">Модератор</option>
-        <option value="admin">Администратор</option>
+        <template v-for="role in USERS_ROLES_OPTIONS" :key="role.value">
+          <option :value="role.value">{{ role.title }}</option>
+        </template>
       </select>
     </div>
 
@@ -68,6 +68,7 @@ import { storeToRefs } from 'pinia'
 import { generateId } from '@/utils'
 import type { User, NewUser } from '@/types/users.types'
 import UModal from '@/components/UModal.vue'
+import { USERS_ROLES_OPTIONS } from '@/constants/users.constants'
 
 const DEFAULT_NEW_USER: NewUser = {
   name: '',
