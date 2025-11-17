@@ -24,44 +24,14 @@
     <!-- Таблица -->
     <div v-if="!isLoading && !error" class="table-wrapper">
       <table class="user-table">
-        <thead>
-          <tr>
-            <th>
-              <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
-            </th>
-            <th @click="sortBy('id')" :class="{ sortable: true, active: sortValue === 'id' }">
-              ID
-              <span v-if="sortValue === 'id'">
-                {{ sortDirection === 'asc' ? '↑' : '↓' }}
-              </span>
-            </th>
-            <th @click="sortBy('name')" :class="{ sortable: true, active: sortValue === 'name' }">
-              Имя
-              <span v-if="sortValue === 'name'">
-                {{ sortDirection === 'asc' ? '↑' : '↓' }}
-              </span>
-            </th>
-            <th @click="sortBy('email')" :class="{ sortable: true, active: sortValue === 'email' }">
-              Email
-              <span v-if="sortValue === 'email'">
-                {{ sortDirection === 'asc' ? '↑' : '↓' }}
-              </span>
-            </th>
-            <th>Роль</th>
-            <th>Статус</th>
-            <th
-              @click="sortBy('registrationDate')"
-              :class="{ sortable: true, active: sortValue === 'registrationDate' }"
-            >
-              Дата регистрации
-              <span v-if="sortValue === 'registrationDate'">
-                {{ sortDirection === 'asc' ? '↑' : '↓' }}
-              </span>
-            </th>
-            <th>Последняя активность</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
+        <UTableHead
+          :columns="$options.TABLE_COLUMNS"
+          :isAllSelected="isAllSelected"
+          :sortValue="sortValue"
+          :sortDirection="sortDirection"
+          @check-all="toggleSelectAll"
+          @sort="sortHandler"
+        />
 
         <tbody>
           <tr
@@ -224,9 +194,46 @@ import UsersTableUserDetailsModal from '@/components/users-table/UsersTableUserD
 import UsersTableHeader from '@/components/users-table/UsersTableHeader.vue'
 import UsersTableFilters from '@/components/users-table/UsersTableFilters.vue'
 import UPagination from '@/components/UPagination.vue'
+import UTableHead from '@/components/UTableHead.vue'
+import type { UTableColumn, UTableColumnSortValue } from '@/types/ui.types'
 
 export default {
   name: 'UserTable',
+
+  TABLE_COLUMNS: [
+    {
+      title: 'ID',
+      sortValue: 'id',
+      sortable: true,
+    },
+    {
+      title: 'Имя',
+      sortValue: 'name',
+      sortable: true,
+    },
+    {
+      title: 'Email',
+      sortValue: 'email',
+      sortable: true,
+    },
+    {
+      title: 'Роль',
+    },
+    {
+      title: 'Статус',
+    },
+    {
+      title: 'Дата регистрации',
+      sortValue: 'registrationDate',
+      sortable: true,
+    },
+    {
+      title: 'Последняя активность',
+    },
+    {
+      title: 'Действия',
+    },
+  ] as UTableColumn[],
 
   components: {
     UsersTableAddUserModal,
@@ -234,6 +241,7 @@ export default {
     UsersTableHeader,
     UsersTableFilters,
     UPagination,
+    UTableHead,
   },
 
   props: {
@@ -276,6 +284,12 @@ export default {
       visiblePages,
 
       filters,
+
+      sortValue,
+      sortDirection,
+      filteredAndSearchedUsers,
+      paginatedUsers,
+      sortedUsers,
     } = storeToRefs(usersStore)
 
     const {
@@ -288,11 +302,10 @@ export default {
 
       setListFilters,
       clearFilters,
+
+      sortBy,
     } = usersStore
 
-    const { sortValue, sortDirection, filteredAndSearchedUsers, paginatedUsers, sortedUsers } =
-      storeToRefs(usersStore)
-    const { sortBy } = usersStore
     const { checkedItems, isAllSelected, toggleSelectItem, toggleSelectAll } = useCheckItems(
       paginatedUsers,
       'id',
@@ -451,6 +464,14 @@ export default {
       } catch (err) {
         alert('Ошибка удаления: ' + getErrorTextMessage(err))
       }
+    },
+
+    sortHandler(sortValue: UTableColumnSortValue) {
+      if (!sortValue) {
+        return
+      }
+
+      this.sortBy(sortValue as keyof User)
     },
 
     // Переключение статуса
