@@ -15,3 +15,10 @@ export interface User {
   postsCount: number
   commentsCount: number
 }
+
+export interface NewUser {
+  name: string
+  email: string
+  role: UserRole
+  sendWelcomeEmail: boolean
+}
