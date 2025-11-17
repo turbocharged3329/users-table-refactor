@@ -27,20 +27,17 @@ export const useCheckItems = <T, K extends keyof T>(itemsArray: Ref<T[]>, checke
 
   const toggleSelectAll = () => {
     if (isAllSelected.value) {
-      checkedItems.value.forEach((id) => {
-        const index = checkedItems.value.findIndex((itemId) => itemId === id)
-        if (index > -1) {
-          checkedItems.value.splice(index, 1)
-        }
-      })
-    } else {
-      itemsArray.value.forEach((item) => {
-        const itemId = item[checkedIdKey]
-        if (!checkedItems.value.some((id) => id === itemId)) {
-          checkedItems.value.push(itemId as (typeof checkedItems.value)[number])
-        }
-      })
+      checkedItems.value = []
+
+      return
     }
+
+    itemsArray.value.forEach((item) => {
+      const itemId = item[checkedIdKey]
+      if (!checkedItems.value.some((id) => id === itemId)) {
+        checkedItems.value.push(itemId as (typeof checkedItems.value)[number])
+      }
+    })
   }
 
   return {
