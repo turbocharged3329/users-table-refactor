@@ -17,7 +17,7 @@
 
         <select
           :value="filters.filterRole"
-          @change="setListFilters({ filterRole: $event.target.value })"
+          @change="setListFilters({ filterRole: ($event.target as HTMLSelectElement).value })"
           class="role-filter"
         >
           <option value="">Все роли</option>
@@ -76,14 +76,14 @@
         <label>Дата регистрации:</label>
         <input
           :value="filters.dateFrom"
-          @blur="setListFilters({ dateFrom: $event.target.value })"
+          @blur="setListFilters({ dateFrom: ($event.target as HTMLInputElement).value })"
           type="date"
           class="date-input"
         />
         <span>-</span>
         <input
           :value="filters.dateTo"
-          @blur="setListFilters({ dateTo: $event.target.value })"
+          @blur="setListFilters({ dateTo: ($event.target as HTMLInputElement).value })"
           type="date"
           class="date-input"
         />
@@ -318,149 +318,139 @@
       </div>
     </div>
 
-    <!-- Модальное окно добавления пользователя -->
-    <div v-if="showAddUserModal" class="modal-overlay" @click.self="closeAddUserModal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Добавить нового пользователя</h3>
-          <button @click="closeAddUserModal" class="btn-close">✕</button>
+    <UModal v-model="showAddUserModal">
+      <template #header>
+        <h3>Добавить нового пользователя</h3>
+        <button @click="closeAddUserModal" class="btn-close">✕</button>
+      </template>
+
+      <div class="form-group">
+        <label>Имя*</label>
+        <input
+          v-model="newUser.name"
+          type="text"
+          :class="{ error: newUserErrors.name }"
+          @input="validateNewUserName"
+        />
+        <span v-if="newUserErrors.name" class="error-text">
+          {{ newUserErrors.name }}
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label>Email*</label>
+        <input
+          v-model="newUser.email"
+          type="email"
+          :class="{ error: newUserErrors.email }"
+          @input="validateNewUserEmail"
+        />
+        <span v-if="newUserErrors.email" class="error-text">
+          {{ newUserErrors.email }}
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label>Роль*</label>
+        <select v-model="newUser.role">
+          <option value="user">Пользователь</option>
+          <option value="moderator">Модератор</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input v-model="newUser.sendWelcomeEmail" type="checkbox" />
+          Отправить приветственное письмо
+        </label>
+      </div>
+
+      <template #footer>
+        <button @click="closeAddUserModal" class="btn btn-secondary">Отмена</button>
+        <button
+          @click="addNewUserHandler"
+          class="btn btn-primary"
+          :disabled="!isNewUserValid || isSaving"
+        >
+          {{ isSaving ? 'Сохранение...' : 'Добавить' }}
+        </button>
+      </template>
+    </UModal>
+
+    <UModal v-model="showDetailsModal" variant="large">
+      <template #header>
+        <h3>Информация о пользователе</h3>
+        <button @click="closeDetailsModal" class="btn-close">✕</button>
+      </template>
+
+      <div class="user-details" v-if="selectedUser">
+        <div class="detail-section">
+          <img
+            :src="selectedUser.avatar || getDefaultAvatar(selectedUser.name)"
+            :alt="selectedUser.name"
+            class="avatar-large"
+          />
+          <h2>{{ selectedUser.name }}</h2>
+          <p class="user-email">{{ selectedUser.email }}</p>
         </div>
 
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Имя*</label>
-            <input
-              v-model="newUser.name"
-              type="text"
-              :class="{ error: newUserErrors.name }"
-              @input="validateNewUserName"
-            />
-            <span v-if="newUserErrors.name" class="error-text">
-              {{ newUserErrors.name }}
+        <div class="detail-section">
+          <h4>Основная информация</h4>
+          <div class="detail-row">
+            <span class="label">ID:</span>
+            <span>{{ selectedUser.id }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Роль:</span>
+            <span :class="['role-badge', 'role-' + selectedUser.role]">
+              {{ getRoleLabel(selectedUser.role) }}
             </span>
           </div>
-
-          <div class="form-group">
-            <label>Email*</label>
-            <input
-              v-model="newUser.email"
-              type="email"
-              :class="{ error: newUserErrors.email }"
-              @input="validateNewUserEmail"
-            />
-            <span v-if="newUserErrors.email" class="error-text">
-              {{ newUserErrors.email }}
+          <div class="detail-row">
+            <span class="label">Статус:</span>
+            <span
+              :class="[
+                'status-badge',
+                selectedUser.status === 'active' ? 'status-active' : 'status-inactive',
+              ]"
+            >
+              {{ selectedUser.status === 'active' ? 'Активен' : 'Неактивен' }}
             </span>
           </div>
-
-          <div class="form-group">
-            <label>Роль*</label>
-            <select v-model="newUser.role">
-              <option value="user">Пользователь</option>
-              <option value="moderator">Модератор</option>
-              <option value="admin">Администратор</option>
-            </select>
+          <div class="detail-row">
+            <span class="label">Дата регистрации:</span>
+            <span>{{ formatDate(selectedUser.registrationDate) }}</span>
           </div>
-
-          <div class="form-group">
-            <label>
-              <input v-model="newUser.sendWelcomeEmail" type="checkbox" />
-              Отправить приветственное письмо
-            </label>
+          <div class="detail-row">
+            <span class="label">Последняя активность:</span>
+            <span>{{ formatRelativeTime(selectedUser.lastActivity) }}</span>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button @click="closeAddUserModal" class="btn btn-secondary">Отмена</button>
-          <button
-            @click="addNewUserHandler"
-            class="btn btn-primary"
-            :disabled="!isNewUserValid || isSaving"
-          >
-            {{ isSaving ? 'Сохранение...' : 'Добавить' }}
-          </button>
+        <div class="detail-section">
+          <h4>Статистика</h4>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ selectedUser.loginCount || 0 }}</div>
+              <div class="stat-label">Входов</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ selectedUser.postsCount || 0 }}</div>
+              <div class="stat-label">Постов</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ selectedUser.commentsCount || 0 }}</div>
+              <div class="stat-label">Комментариев</div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Модальное окно деталей пользователя -->
-    <div v-if="showDetailsModal" class="modal-overlay" @click.self="closeDetailsModal">
-      <div class="modal modal-large">
-        <div class="modal-header">
-          <h3>Информация о пользователе</h3>
-          <button @click="closeDetailsModal" class="btn-close">✕</button>
-        </div>
-
-        <div class="modal-body" v-if="selectedUser">
-          <div class="user-details">
-            <div class="detail-section">
-              <img
-                :src="selectedUser.avatar || getDefaultAvatar(selectedUser.name)"
-                :alt="selectedUser.name"
-                class="avatar-large"
-              />
-              <h2>{{ selectedUser.name }}</h2>
-              <p class="user-email">{{ selectedUser.email }}</p>
-            </div>
-
-            <div class="detail-section">
-              <h4>Основная информация</h4>
-              <div class="detail-row">
-                <span class="label">ID:</span>
-                <span>{{ selectedUser.id }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Роль:</span>
-                <span :class="['role-badge', 'role-' + selectedUser.role]">
-                  {{ getRoleLabel(selectedUser.role) }}
-                </span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Статус:</span>
-                <span
-                  :class="[
-                    'status-badge',
-                    selectedUser.status === 'active' ? 'status-active' : 'status-inactive',
-                  ]"
-                >
-                  {{ selectedUser.status === 'active' ? 'Активен' : 'Неактивен' }}
-                </span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Дата регистрации:</span>
-                <span>{{ formatDate(selectedUser.registrationDate) }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">Последняя активность:</span>
-                <span>{{ formatRelativeTime(selectedUser.lastActivity) }}</span>
-              </div>
-            </div>
-
-            <div class="detail-section">
-              <h4>Статистика</h4>
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-value">{{ selectedUser.loginCount || 0 }}</div>
-                  <div class="stat-label">Входов</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-value">{{ selectedUser.postsCount || 0 }}</div>
-                  <div class="stat-label">Постов</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-value">{{ selectedUser.commentsCount || 0 }}</div>
-                  <div class="stat-label">Комментариев</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button @click="closeDetailsModal" class="btn btn-secondary">Закрыть</button>
-        </div>
-      </div>
-    </div>
+      <template #footer>
+        <button @click="closeDetailsModal" class="btn btn-secondary">Закрыть</button>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -475,9 +465,14 @@ import type { User, UserId } from '@/types/users.types'
 import { generateId, debounce } from '@/utils'
 import { getDefaultAvatar, getActivityClass } from '@/utils/users.utils'
 import { useCheckItems } from '@/composables/useCheckItems'
+import UModal from '@/components/UModal.vue'
 
 export default {
   name: 'UserTable',
+
+  components: {
+    UModal,
+  },
 
   props: {
     title: {
@@ -605,7 +600,7 @@ export default {
       // Модальные окна
       showAddUserModal: false,
       showDetailsModal: false,
-      selectedUser: null,
+      selectedUser: null as User | null,
 
       // Новый пользователь
       newUser: {
@@ -1364,71 +1359,6 @@ export default {
   font-size: 14px;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.modal.modal-large {
-  max-width: 700px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 20px;
-  color: #333;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.btn-close:hover {
-  background: #f0f0f0;
-  color: #333;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
 .form-group {
   margin-bottom: 20px;
 }
@@ -1459,14 +1389,6 @@ export default {
   font-size: 12px;
   margin-top: 5px;
   display: block;
-}
-
-.modal-footer {
-  padding: 20px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 .user-details {
