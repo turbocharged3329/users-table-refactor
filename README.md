@@ -1,48 +1,81 @@
-# users-table-refactor
+## Рефакторинг UserTableLegacy
 
-This template should help get you started developing with Vue 3 in Vite.
+Проект был рефакторирован с монолитного компонента `UserTableLegacy.vue` на модульную архитектуру:
 
-## Recommended IDE Setup
+### Преимущества новой архитектуры:
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- ✅ Модульность и переиспользуемость компонентов
+- ✅ Разделение ответственности (компоненты, логика, состояние)
+- ✅ Типобезопасность с TypeScript
+- ✅ Легче тестировать и поддерживать
+- ✅ Композиция через composables вместо монолитного компонента
 
-## Recommended Browser Setup
+Старая версия сохранена в `src/legacy/UserTableLegacy.vue` для справки.
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Установка и запуск проекта
 
-## Type Support for `.vue` Imports in TS
+### Требования
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- Node.js версии `^20.19.0` или `>=22.12.0`
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+### Установка зависимостей
 
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+### Запуск в режиме разработки
 
 ```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+Приложение будет доступно по адресу `http://localhost:5173` (или другому порту, если 5173 занят).
+
+### Запуск с проверкой типов
+
+```sh
+npm run dev:checked
+```
+
+Запускает dev-сервер и проверку типов TypeScript в режиме watch.
+
+### Сборка для production
 
 ```sh
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+Собирает проект с проверкой типов и минификацией. Результат будет в папке `dist/`.
+
+### Предпросмотр production сборки
+
+```sh
+npm run preview
+```
+
+Запускает локальный сервер для предпросмотра production сборки.
+
+### Проверка типов
+
+```sh
+npm run type-check
+```
+
+Запускает проверку типов TypeScript в режиме watch.
+
+### Линтинг
 
 ```sh
 npm run lint
 ```
+
+Запускает ESLint для проверки и автоматического исправления кода.
+
+### Форматирование кода
+
+```sh
+npm run format
+```
+
+Форматирует код с помощью Prettier.
